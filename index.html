@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TL Activate</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0b0d10;color:#e8e6e1;font:15px/1.45 system-ui,sans-serif;padding-bottom:50px}
+#hdr{padding:14px 14px 10px;border-bottom:1px solid #1e232b;position:sticky;top:0;background:#0b0d10;z-index:9}
+.brand{font:700 19px/1 Georgia,serif;letter-spacing:.16em;color:#d4af37}
+.mode{float:right;font:700 9px/1 system-ui;letter-spacing:.1em;padding:4px 8px;border-radius:20px;background:#3a2a08;color:#e0b64a}
+.mode.live{background:#12321c;color:#7ce38b}
+.tot{font:700 28px/1.1 system-ui;color:#7ce38b;margin-top:6px}
+#tabs{display:flex;gap:5px;padding:9px 10px;overflow-x:auto;border-bottom:1px solid #1e232b}
+#tabs a{flex:0 0 auto;font:600 10.5px system-ui;letter-spacing:.08em;text-decoration:none;color:#9aa3ad;padding:8px 11px;border-radius:7px;border:1px solid #232b34}
+#tabs a.on{background:#d4af37;color:#0b0d10;border-color:#d4af37}
+main{padding:12px}
+label{display:block;font-size:10px;color:#6b7480;letter-spacing:.08em;text-transform:uppercase;margin:10px 0 3px}
+input,select{width:100%;background:#12161c;border:1px solid #262d38;border-radius:7px;color:#e8e6e1;padding:10px;font:15px system-ui}
+button{font:700 12px system-ui;letter-spacing:.07em;border:0;border-radius:8px;padding:12px;width:100%;margin-top:8px}
+.b{background:#d4af37;color:#0b0d10}.g{background:#1a2029;color:#cfd6de;border:1px solid #2b333f}
+.rw{display:flex;gap:7px}.rw>*{flex:1}
+.row{background:#12161c;border:1px solid #1e232b;border-radius:9px;padding:10px;margin:7px 0;font-size:13px}
+.row b{color:#f0e6cf}
+.mt{font-size:11px;color:#6b7480;margin-top:3px}
+.pill{display:inline-block;font-size:9px;padding:2px 7px;border-radius:20px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.pend{background:#3a2a08;color:#e0b64a}.act{background:#12321c;color:#7ce38b}.fail{background:#3a1414;color:#f08a8a}
+.hint{font-size:11.5px;color:#6b7480;margin:8px 0;line-height:1.45}
+.out{background:#0a1420;border:1px solid #1b3a5c;border-radius:8px;padding:10px;font:11.5px ui-monospace,monospace;white-space:pre-wrap;margin-top:8px;color:#bcd6f0}
+.del{float:right;background:transparent;border:0;color:#7a5a5a;font-size:15px;width:auto;padding:0 3px;margin:0}
+</style></head><body>
+<div id="hdr"><span class="mode" id="mode">TEST</span><div class="brand">TL ACTIVATE</div><div class="tot" id="tot">$0.00</div></div>
+<div id="tabs"></div>
+<main id="main"></main>
+<script>
+var TABS=[['REGISTER','reg'],['CATALOG','cat'],['QUEUE','q'],['PROCESSOR','set'],['HELP','doc']];
+function L(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}}
+function S(k,v){localStorage.setItem(k,JSON.stringify(v))}
+function $(i){return document.getElementById(i)}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+var cart=[];
+function money(n){return '$'+(Number(n)||0).toFixed(2)}
+function tot(){var t=0;for(var i=0;i<cart.length;i++)t+=+cart[i].amt||0;return t}
+function buildTabs(){var k=location.hash.replace('#','')||'reg';var h='';TABS.forEach(function(t){h+='<a href="#'+t[1]+'" class="'+(t[1]===k?'on':'')+'">'+t[0]+'</a>'});$('tabs').innerHTML=h;var st=L('tl_set',{});$('mode').textContent=st.mode==='live'?'LIVE':'TEST';$('mode').className='mode'+(st.mode==='live'?' live':'');$('tot').textContent=money(tot())}
+function route(){buildTabs();var k=location.hash.replace('#','')||'reg';({reg:reg,cat:cat,q:q,set:set,doc:doc}[k]||reg)()}
+function findItem(bc){var c=L('tl_cat',[]);for(var i=0;i<c.length;i++)if(c[i].bc===bc)return c[i];return null}
+function reg(){
+ var h='<label>Scan or type barcode</label><div class="rw"><input id="bc" inputmode="numeric" placeholder="barcode"><button class="g" style="flex:0 0 70px;margin:0" onclick="add()">ADD</button></div><button class="g" onclick="scan()">SCAN WITH CAMERA</button><div id="cam"></div>';
+ for(var i=0;i<cart.length;i++){var x=cart[i];h+='<div class="row"><button class="del" onclick="rm('+i+')">x</button><b>'+esc(x.nm||x.bc)+'</b><div class="mt">'+esc(x.bc)+'</div><div class="rw" style="margin-top:6px"><input value="'+(+x.amt||0).toFixed(2)+'" oninput="cart['+i+'].amt=this.value;buildTabs()"></div></div>'}
+ if(cart.length)h+='<button class="b" onclick="tender()">TENDER '+money(tot())+'</button>';
+ h+='<p class="hint">Sell a card: scan it, set the amount, tender. Every tender writes to the queue.</p>';
+ $('main').innerHTML=h;
+}
+function add(){var b=($('bc').value||'').trim();if(!b)return;var it=findItem(b);cart.push({bc:b,nm:it?it.nm:'',sku:it?it.sku:'',amt:it?+it.denom:0});$('bc').value='';reg();$('bc').focus()}
+function rm(i){cart.splice(i,1);reg()}
+function tender(){
+ if(!cart.length)return;
+ var st=L('tl_set',{});var o={id:'O'+Date.now(),ts:new Date().toISOString().slice(0,16).replace('T',' '),items:cart.slice(),total:tot(),status:'pending'};
+ var q=L('tl_q',[]);q.push(o);S('tl_q',q);cart=[];reg();buildTabs();
+ if(st.mode==='live'&&st.endpoint)send(o.id);else setTimeout(function(){mark(o.id,'active','simulated')},700);
+}
+function mark(id,status,note){var q=L('tl_q',[]);for(var i=0;i<q.length;i++)if(q[i].id===id){q[i].status=status;q[i].note=note}S('tl_q',q);route()}
+function send(id){
+ var st=L('tl_set',{}),q=L('tl_q',[]),o=null;
+ for(var i=0;i<q.length;i++)if(q[i].id===id)o=q[i];
+ if(!o||!st.endpoint)return;
+ var body={merchant:{id:st.mid||'',terminal:st.tid||''},order:{id:o.id,ts:o.ts},items:o.items.map(function(x){return {sku:x.sku||'',barcode:x.bc,amount:Math.round((+x.amt||0)*100)}})};
+ fetch(st.endpoint,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+(st.key||'')},body:JSON.stringify(body)})
+ .then(function(r){return r.text().then(function(t){return {ok:r.ok,t:t}})})
+ .then(function(r){var ok=false;try{var j=JSON.parse(r.t);ok=r.ok&&(j.activated!==false)}catch(e){ok=r.ok}
+  mark(id,ok?'active':'failed',ok?'ok':r.t.slice(0,120))})
+ .catch(function(e){mark(id,'failed',String(e.message||e))});
+}
+function scan(){if(!('BarcodeDetector' in window)){alert('No scanner here. Type the barcode.');return}
+ navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}}).then(function(s){var v=document.createElement('video');v.setAttribute('playsinline','');v.srcObject=s;v.style.cssText='width:100%;border-radius:8px;margin-top:8px';$('cam').appendChild(v);v.play();
+  var d=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});var iv=setInterval(function(){d.detect(v).then(function(c){if(c&&c.length){clearInterval(iv);s.getTracks().forEach(function(t){t.stop()});v.remove();$('bc').value=c[0].rawValue;add()}})},300)}).catch(function(){alert('Camera blocked.')})}
+function cat(){var c=L('tl_cat',[]);var h='<p class="hint">Your own product list. Denomination in dollars.</p>';
+ for(var i=0;i<c.length;i++){var x=c[i];h+='<div class="row"><button class="del" onclick="cdel('+i+')">x</button><b>'+esc(x.nm)+'</b><div class="mt">'+esc(x.sku||'')+' | '+esc(x.bc)+' | '+money(x.denom)+'</div></div>'}
+ h+='<label>Name</label><input id="cn"><div class="rw"><div><label>SKU</label><input id="cs"></div><div><label>Denomination</label><input id="cd" inputmode="decimal"></div></div><label>Barcode</label><input id="cb" inputmode="numeric"><button class="b" onclick="cadd()">ADD ITEM</button>';
+ $('main').innerHTML=h}
+function cadd(){var c=L('tl_cat',[]);c.push({nm:$('cn').value,sku:$('cs').value,denom:$('cd').value,bc:$('cb').value});S('tl_cat',c);cat()}
+function cdel(i){var c=L('tl_cat',[]);c.splice(i,1);S('tl_cat',c);cat()}
+function q(){var a=L('tl_q',[]);var h='<p class="hint">'+a.length+' orders. Pending waits on the processor.</p>';
+ for(var i=a.length-1;i>=0;i--){var o=a[i];h+='<div class="row"><span class="pill '+o.status.slice(0,4)+'">'+esc(o.status)+'</span> <b>'+money(o.total)+'</b><div class="mt">'+esc(o.id)+' · '+esc(o.ts)+'</div>';if(o.note)h+='<div class="mt">'+esc(o.note)+'</div>';if(o.status==='pending'||o.status==='failed')h+='<button class="g" onclick="send(\''+o.id+'\')">SEND AGAIN</button>';h+='</div>'}
+ if(!a.length)h+='<p class="hint">Nothing yet.</p>';
+ $('main').innerHTML=h}
+function set(){var s=L('tl_set',{});var h='<p class="hint">Adapter settings. Leave mode on TEST until a processor gives you credentials.</p><label>Mode</label><select id="sm"><option value="test"'+(s.mode!=='live'?' selected':'')+'>TEST - simulate activation</option><option value="live"'+(s.mode==='live'?' selected':'')+'>LIVE - call the processor</option></select><label>Endpoint URL</label><input id="se" value="'+esc(s.endpoint||'')+'" placeholder="https://"><div class="rw"><div><label>Merchant ID</label><input id="smid" value="'+esc(s.mid||'')+'"></div><div><label>Terminal ID</label><input id="stid" value="'+esc(s.tid||'')+'"></div></div><label>API key</label><input id="sk" value="'+esc(s.key||'')+'"><button class="b" onclick="ssave()">SAVE</button>';
+ $('main').innerHTML=h}
+function ssave(){S('tl_set',{mode:$('sm').value,endpoint:$('se').value.trim(),mid:$('smid').value.trim(),tid:$('stid').value.trim(),key:$('sk').value.trim()});buildTabs();$('main').insertAdjacentHTML('afterbegin','<div class="out">Saved.</div>')}
+function doc(){var h='<p class="hint">Read this once, then ignore it.</p>'
+ +'<div class="row"><b>What works right now</b><div class="mt">Catalog, register, receipts, queue. In TEST mode a tender marks itself active after a beat so you can rehearse the counter.</div></div>'
+ +'<div class="row"><b>What needs a processor</b><div class="mt">Real activation. A card is dead plastic until the issuer records a load, and only a processor can record it.</div></div>'
+ +'<div class="row"><b>Who to ask</b><div class="mt">Blackhawk Network (developer.blackhawknetwork.com) and InComm both run activation APIs. Neither is self-serve - both want a distributor or reseller agreement first. Ask for the reseller program, not support.</div></div>'
+ +'<div class="row"><b>What they will ask</b><div class="mt">EIN, business bank account, expected monthly volume, and where the cards ship. Have the EIN letter ready before you call.</div></div>'
+ +'<div class="row"><b>Cheaper shortcut</b><div class="mt">Sell your own gift cards instead. Square and Stripe both issue and activate cards you own, self-serve, no agreement. You lose the shelf-card business but you can trade this week.</div></div>'
+ +'<div class="row"><b>The adapter</b><div class="mt">It posts JSON: merchant id and terminal, order id and time, then items with sku, barcode and amount in cents, with a Bearer key. Any processor response that returns 200 without activated:false counts as success. When you have a real spec, that mapping is the only thing that changes.</div></div>';
+ $('main').innerHTML=h}
+window.addEventListener('hashchange',route);
+route();
+</script></body></html>
